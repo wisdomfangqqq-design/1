@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "calculator_loader",
+    "calculator_plugin",
+]
+resolver = "2"
