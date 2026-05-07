@@ -25,6 +25,62 @@ use std::path::Path;
 use loader::CalculatorLoader;
 use exe_loader::ExeCalculator;
 
+/// 统一封装两种计算器加载方式
+enum AnyCalculator {
+    Library(CalculatorLoader),
+    Exe(ExeCalculator),
+}
+
+impl AnyCalculator {
+    fn name(&self) -> &str {
+        match self {
+            AnyCalculator::Library(c) => c.name(),
+            AnyCalculator::Exe(c)     => c.name(),
+        }
+    }
+
+    fn calculate(&self, operation: &str, a: f64, b: f64) -> f64 {
+        match operation {
+            "add"      => self.add(a, b),
+            "subtract" => self.subtract(a, b),
+            "multiply" => self.multiply(a, b),
+            "divide"   => self.divide(a, b),
+            other => {
+                eprintln!("未知操作: '{}'，支持: add | subtract | multiply | divide", other);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    fn add(&self, a: f64, b: f64) -> f64 {
+        match self {
+            AnyCalculator::Library(c) => c.add(a, b),
+            AnyCalculator::Exe(c)     => c.add(a, b),
+        }
+    }
+
+    fn subtract(&self, a: f64, b: f64) -> f64 {
+        match self {
+            AnyCalculator::Library(c) => c.subtract(a, b),
+            AnyCalculator::Exe(c)     => c.subtract(a, b),
+        }
+    }
+
+    fn multiply(&self, a: f64, b: f64) -> f64 {
+        match self {
+            AnyCalculator::Library(c) => c.multiply(a, b),
+            AnyCalculator::Exe(c)     => c.multiply(a, b),
+        }
+    }
+
+    fn divide(&self, a: f64, b: f64) -> f64 {
+        match self {
+            AnyCalculator::Library(c) => c.divide(a, b),
+            AnyCalculator::Exe(c)     => c.divide(a, b),
+        }
+    }
+}
+
 /// 根据文件路径判断应使用 exe 加载方式还是动态库加载方式
 fn is_exe_path(path: &str) -> bool {
     let p = Path::new(path);
@@ -33,7 +89,7 @@ fn is_exe_path(path: &str) -> bool {
         Some("dll") | Some("so") | Some("dylib") => false,
         // .exe 扩展名 → exe 模式
         Some("exe") => true,
-        // 无扩展名：在 Unix 系统上检查可执行权限，否则默认 exe 模式
+        // 无扩展名：在 Unix 系统上检查可执行权限，否则默认动态库模式（让后续加载报错）
         _ => {
             #[cfg(unix)]
             {
@@ -42,7 +98,7 @@ fn is_exe_path(path: &str) -> bool {
                     return meta.permissions().mode() & 0o111 != 0;
                 }
             }
-            true
+            false
         }
     }
 }
@@ -73,34 +129,16 @@ fn main() {
     let b: f64    = args[4].parse().expect("数字B 解析失败");
 
     // 根据路径类型选择加载方式
-    let result = if is_exe_path(path) {
-        let calc = ExeCalculator::new(path);
-        println!("已加载可执行程序: {}", calc.name());
-        match operation.as_str() {
-            "add"      => calc.add(a, b),
-            "subtract" => calc.subtract(a, b),
-            "multiply" => calc.multiply(a, b),
-            "divide"   => calc.divide(a, b),
-            other => {
-                eprintln!("未知操作: '{}'，支持: add | subtract | multiply | divide", other);
-                std::process::exit(1);
-            }
-        }
+    let calc: AnyCalculator = if is_exe_path(path) {
+        AnyCalculator::Exe(ExeCalculator::new(path))
     } else {
-        let loader = CalculatorLoader::new(path)
+        let lib = CalculatorLoader::new(path)
             .expect("加载动态库失败，请检查路径和文件是否存在");
-        println!("已加载插件: {}", loader.name());
-        match operation.as_str() {
-            "add"      => loader.add(a, b),
-            "subtract" => loader.subtract(a, b),
-            "multiply" => loader.multiply(a, b),
-            "divide"   => loader.divide(a, b),
-            other => {
-                eprintln!("未知操作: '{}'，支持: add | subtract | multiply | divide", other);
-                std::process::exit(1);
-            }
-        }
+        AnyCalculator::Library(lib)
     };
+
+    println!("已加载: {}", calc.name());
+    let result = calc.calculate(operation, a, b);
 
     if result.is_nan() {
         println!("{} {} {} = 错误: 除数不能为零", a, operation, b);
