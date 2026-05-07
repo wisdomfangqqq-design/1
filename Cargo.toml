@@ -2,5 +2,6 @@
 members = [
     "calculator_loader",
     "calculator_plugin",
+    "calculator_exe",
 ]
 resolver = "2"

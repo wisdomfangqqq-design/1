@@ -1,6 +1,6 @@
 //! CalculatorLoader —— 动态库加载器核心模块
 
-use libloading::{Library, Symbol};
+use libloading::Library;
 use std::ffi::CStr;
 use std::path::Path;
 
